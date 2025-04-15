@@ -30,9 +30,11 @@ if (mysqli_num_rows($fetchCirclesResult) > 0) {
     }
 }
 
+$clusters = [];
 $siteid = trim(isset($_GET['siteid']) ? $_GET['siteid'] : "");
 $selected_regions = isset($_GET['region']) ? $_GET['region'] : [];
 $selected_circles = isset($_GET['circle']) ? $_GET['circle'] : [];
+$selected_clusters = isset($_GET['circle']) ? $_GET['circle'] : [];
 $region_filter = "";
 $siteid_filter = "";
 $circle_filter = "";
@@ -120,7 +122,7 @@ while ($row = $result->fetch_assoc()) {
     <?php
     $selected_circles = isset($_GET['circle']) ? $_GET['circle'] : [];
     ?>
-    <form method="get" class="mb-4 inline-block relative">
+    <form method="get" class=" inline-block relative">
         <div class="flex flex-col sm:flex-row sm:items-center gap-2 mr-8">
 
             <label class="font-semibold">Site:</label>
@@ -136,18 +138,22 @@ while ($row = $result->fetch_assoc()) {
                 </button>
 
                 <div id="dropdownMenu" class="hidden absolute z-10 mt-2 w-56 bg-white ring-1 ring-black ring-opacity-5 p-4 max-h-64 overflow-y-auto">
+                    <input type="text" placeholder="Search" class="px-2 py-1 border border-gray-500 mb-2 rounded-md" id="searchRegion">
+
                     <label class="block mb-2">
                         <input type="checkbox" id="selectAll" class="mr-1">
                         <strong>Select All</strong>
                     </label>
+
                     <?php foreach ($regions as $region): ?>
-                        <label class="block">
+                        <label class="block region-item">
                             <input type="checkbox" name="region[]" value="<?php echo $region; ?>"
                                 <?php echo in_array($region, $selected_regions) ? 'checked' : ''; ?>>
                             <?php echo $region; ?>
                         </label>
                     <?php endforeach; ?>
                 </div>
+
             </div>
 
             <label class=" font-semibold">Circle:</label>
@@ -160,15 +166,41 @@ while ($row = $result->fetch_assoc()) {
                 </button>
 
                 <div id="dropdownMenuCircle" class="hidden absolute z-10 mt-2 w-56 bg-white ring-1 ring-black ring-opacity-5 p-4 max-h-64 overflow-y-auto">
+                    <input type="text" placeholder="Search" class="px-1 py-1 border border-gray-500 mb-2 rounded-md" id="searchCircle">
                     <label class="block mb-2">
                         <input type="checkbox" id="selectAllCircle" class="mr-1">
                         <strong>Select All</strong>
                     </label>
                     <?php foreach ($circles as $circle): ?>
-                        <label class="block">
+                        <label class="block circle-item">
                             <input type="checkbox" name="circle[]" value="<?php echo $circle; ?>"
                                 <?php echo in_array($circle, $selected_circles) ? 'checked' : ''; ?>>
                             <?php echo $circle; ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <label class=" font-semibold">Cluster:</label>
+            <div class="relative inline-block text-left">
+                <button type="button" id="dropdownButtoncluster" class="inline-flex justify-center w-full border border-gray-300 shadow-sm px-2 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Select Clusters
+                    <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.25 8.27a.75.75 0 01-.02-1.06z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+
+                <div id="dropdownMenuCluster" class="hidden absolute z-10 mt-2 w-56 bg-white ring-1 ring-black ring-opacity-5 p-4 max-h-64 overflow-y-auto">
+                    <input type="text" placeholder="Search" class="px-1 py-1 border border-gray-500 mb-2 rounded-md" id="searchCluster">
+                    <label class="block mb-2">
+                        <input type="checkbox" id="selectAllCircle" class="mr-1">
+                        <strong>Select All</strong>
+                    </label>
+                    <?php foreach ($clusters as $cluster): ?>
+                        <label class="block cluster-item">
+                            <input type="checkbox" name="cluster[]" value="<?php echo $cluster; ?>"
+                                <?php echo in_array($cluster, $selected_clusters) ? 'checked' : ''; ?>>
+                            <?php echo $cluster; ?>
                         </label>
                     <?php endforeach; ?>
                 </div>
@@ -178,8 +210,7 @@ while ($row = $result->fetch_assoc()) {
             <button type="submit" class="bg-blue-700 text-white px-3 py-1 text-sm">Search</button>
         </div>
     </form>
-
-
+    <br>
     <form action="import_sheet.php" method="post" enctype="multipart/form-data" style="display: inline;">
         <input type="file" name="file" accept=".xls,.xlsx" required class="p-1 border border-gray-500">
         <button class="bg-black text-white px-3 py-1  rounded-sm text-[14px] mt-4 inline-block" type="submit" name="submit">Import Excel</button>
@@ -188,7 +219,7 @@ while ($row = $result->fetch_assoc()) {
         <button class="bg-green-600 text-white px-3 py-1  rounded-sm text-[16px] mt-4 inline-block" type="submit" name="export_submit">Export Excel</button>
     </form>
 
-    <div class="overflow-auto max-h-[70vh] max-w-full border border-gray-300 ">
+    <div class="overflow-auto max-h-[70vh] max-w-full border border-gray-300 mt-3">
         <table class="min-w-full table-auto bg-white border-collapse shadow-lg rounded-md">
             <thead>
                 <tr class="bg-gray-200">
@@ -296,20 +327,24 @@ while ($row = $result->fetch_assoc()) {
                 echo "Showing " . $start . " to " . $end . " of " . $total_records . " Site";
                 echo "</div>";
 
+                $separator1 = empty($selected_regions) ? '' : '&';
+                $separator2 = empty($selected_circles) ? '' : '&';
                 if ($current_page > 1) {
-                    print_r('<li><a href="dashboard.php?page=' . ($current_page - 1) . '&' . http_build_query(array("region" => $selected_regions)) . '&' . http_build_query(array("circle" => $selected_circles)) . '"><< Prev</a></li>');
+                    print_r('<li><a href="dashboard.php?page=' . ($current_page - 1) . $separator1 . http_build_query(array("region" => $selected_regions)) . $separator2 . http_build_query(array("circle" => $selected_circles)) . '"><< Prev</a></li>');
                 }
 
                 $start = max(1, $current_page - 1);
                 $end = min($total_page, $current_page + 1);
 
+
+
                 for ($i = $start; $i <= $end; $i++) {
                     $active = ($i == $current_page) ? 'active' : '';
-                    print_r('<li><a class="' . $active . '" href="dashboard.php?page=' . $i . '&' . http_build_query(array("region" => $selected_regions)) . '&' . http_build_query(array("circle" => $selected_circles)) . '">' . $i . '</a></li>');
+                    print_r('<li><a class="' . $active . '" href="dashboard.php?page=' . $i . $separator1 . http_build_query(array("region" => $selected_regions)) . $separator2 . http_build_query(array("circle" => $selected_circles)) . '">' . $i . '</a></li>');
                 }
 
                 if ($current_page < $total_page) {
-                    print_r('<li><a href="dashboard.php?page=' . ($current_page + 1) . '&' . http_build_query(array("region" => $selected_regions)) . '&' . http_build_query(array("circle" => $selected_circles)) . '">Next >></a></li>');
+                    print_r('<li><a href="dashboard.php?page=' . ($current_page + 1) . $separator1 . http_build_query(array("region" => $selected_regions)) . $separator2 . http_build_query(array("circle" => $selected_circles)) . '">Next >></a></li>');
                 }
             }
             ?>
@@ -328,7 +363,28 @@ while ($row = $result->fetch_assoc()) {
         const dropdownButton = document.getElementById('dropdownButton');
         const dropdownMenu = document.getElementById('dropdownMenu');
         const selectAllCheckbox = document.getElementById('selectAll');
+        const searchInput = document.getElementById("searchRegion");
 
+        searchInput.addEventListener("input", function() {
+            let filter = this.value.toLowerCase();
+            let items = document.querySelectorAll(".region-item");
+
+            let visibleItems = [];
+
+            items.forEach(function(item) {
+                let text = item.textContent.toLowerCase();
+                if (text.includes(filter)) {
+                    item.style.display = "block";
+                    visibleItems.push(item);
+                } else {
+                    item.style.display = "none";
+                }
+            });
+
+            const visibleCheckboxes = visibleItems.map(item => item.querySelector('input[type="checkbox"][name="region[]"]'));
+            const allChecked = visibleCheckboxes.length > 0 && visibleCheckboxes.every(cb => cb.checked);
+            selectAllCheckbox.checked = allChecked;
+        });
 
         dropdownButton.addEventListener('click', function(e) {
             e.preventDefault();
@@ -342,8 +398,23 @@ while ($row = $result->fetch_assoc()) {
         });
 
         selectAllCheckbox.addEventListener('change', function() {
-            const checkboxes = dropdownMenu.querySelectorAll('input[type="checkbox"][name="region[]"]');
-            checkboxes.forEach(cb => cb.checked = this.checked);
+            const items = dropdownMenu.querySelectorAll('.region-item');
+            let hasVisible = false;
+
+            items.forEach(item => {
+                if (item.style.display !== "none") {
+                    const cb = item.querySelector('input[type="checkbox"][name="region[]"]');
+                    if (cb) {
+                        cb.checked = selectAllCheckbox.checked;
+                        hasVisible = true;
+                    }
+                }
+            });
+
+            if (!hasVisible && selectAllCheckbox.checked) {
+                selectAllCheckbox.checked = false;
+            }
+
             updateDropdownLabel();
         });
 
@@ -366,17 +437,20 @@ while ($row = $result->fetch_assoc()) {
 
         dropdownMenu.addEventListener('change', function(e) {
             if (e.target.name === "region[]") {
-                const checkboxes = dropdownMenu.querySelectorAll('input[type="checkbox"][name="region[]"]');
-                const selected = Array.from(checkboxes).filter(cb => cb.checked);
-                selectAllCheckbox.checked = selected.length === checkboxes.length;
+                const items = dropdownMenu.querySelectorAll('.region-item');
+                const visibleItems = Array.from(items).filter(item => item.style.display !== "none");
+                const visibleCheckboxes = visibleItems.map(item => item.querySelector('input[type="checkbox"][name="region[]"]'));
+                const checkedVisible = visibleCheckboxes.filter(cb => cb.checked);
+
+                selectAllCheckbox.checked = visibleCheckboxes.length > 0 && visibleCheckboxes.length === checkedVisible.length;
                 updateDropdownLabel();
             }
         });
 
         function dropdownIcon() {
             return `<svg class="-mr-1 ml-2 h-5 w-5 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.25 8.27a.75.75 0 01-.02-1.06z" clip-rule="evenodd" />
-                </svg>`;
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.25 8.27a.75.75 0 01-.02-1.06z" clip-rule="evenodd" />
+            </svg>`;
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -390,6 +464,28 @@ while ($row = $result->fetch_assoc()) {
         const dropdownButtonCircle = document.getElementById('dropdownButtonCircle');
         const dropdownMenuCircle = document.getElementById('dropdownMenuCircle');
         const selectAllCheckboxCircle = document.getElementById('selectAllCircle');
+        const searchInputCircle = document.getElementById("searchCircle");
+
+        searchInputCircle.addEventListener("input", function() {
+            let filterCircle = this.value.toLowerCase();
+            let itemsCircle = document.querySelectorAll(".circle-item");
+
+            let visibleItemsCircle = [];
+
+            itemsCircle.forEach(function(item) {
+                let textCircle = item.textContent.toLowerCase();
+                if (textCircle.includes(filterCircle)) {
+                    item.style.display = "block";
+                    visibleItemsCircle.push(item);
+                } else {
+                    item.style.display = "none";
+                }
+            });
+
+            const visibleCheckboxesCircle = visibleItemsCircle.map(item => item.querySelector('input[type="checkbox"][name="circle[]"]'));
+            const allCheckedCircle = visibleCheckboxesCircle.length > 0 && visibleCheckboxesCircle.every(cb => cb.checked);
+            selectAllCheckboxCircle.checked = allCheckedCircle;
+        });
 
         dropdownButtonCircle.addEventListener('click', function(e) {
             e.preventDefault();
@@ -397,15 +493,29 @@ while ($row = $result->fetch_assoc()) {
         });
 
         document.addEventListener('click', function(e) {
-
             if (!dropdownButtonCircle.contains(e.target) && !dropdownMenuCircle.contains(e.target)) {
                 dropdownMenuCircle.classList.add('hidden');
             }
         });
 
         selectAllCheckboxCircle.addEventListener('change', function() {
-            const checkboxesCircle = dropdownMenuCircle.querySelectorAll('input[type="checkbox"][name="circle[]"]');
-            checkboxesCircle.forEach(cb => cb.checked = this.checked);
+            const itemsCircle = dropdownMenuCircle.querySelectorAll('.circle-item');
+            let hasVisibleCircle = false;
+
+            itemsCircle.forEach(item => {
+                if (item.style.display !== "none") {
+                    const cb = item.querySelector('input[type="checkbox"][name="circle[]"]');
+                    if (cb) {
+                        cb.checked = selectAllCheckboxCircle.checked;
+                        hasVisibleCircle = true;
+                    }
+                }
+            });
+
+            if (!hasVisibleCircle && selectAllCheckboxCircle.checked) {
+                selectAllCheckboxCircle.checked = false;
+            }
+
             updateDropdownLabelCircle();
         });
 
@@ -428,13 +538,15 @@ while ($row = $result->fetch_assoc()) {
 
         dropdownMenuCircle.addEventListener('change', function(e) {
             if (e.target.name === "circle[]") {
-                const checkboxesCircle = dropdownMenuCircle.querySelectorAll('input[type="checkbox"][name="circle[]"]');
-                const selectedCircle = Array.from(checkboxesCircle).filter(cb => cb.checked);
-                selectAllCheckboxCircle.checked = selectedCircle.length === checkboxesCircle.length;
+                const itemsCircle = dropdownMenuCircle.querySelectorAll('.circle-item');
+                const visibleItemsCircle = Array.from(itemsCircle).filter(item => item.style.display !== "none");
+                const visibleCheckboxesCircle = visibleItemsCircle.map(item => item.querySelector('input[type="checkbox"][name="circle[]"]'));
+                const checkedVisibleCircle = visibleCheckboxesCircle.filter(cb => cb.checked);
+
+                selectAllCheckboxCircle.checked = visibleCheckboxesCircle.length > 0 && visibleCheckboxesCircle.length === checkedVisibleCircle.length;
                 updateDropdownLabelCircle();
             }
         });
-
 
         window.addEventListener('DOMContentLoaded', () => {
             updateDropdownLabelCircle();
