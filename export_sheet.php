@@ -10,6 +10,29 @@ include 'db.php';
 
 if (isset($_POST['export_submit'])) {
 
+    $siteid = isset($_GET['data']['siteid']) ? $_GET['data']['siteid'] : "";
+    $selected_regions = isset($_GET['data']['region']) ? $_GET['data']['region'] : [];
+    $selected_circles = isset($_GET['data']['circle']) ? $_GET['data']['circle'] : [];
+    $region_filter = "";
+    $siteid_filter = "";
+    $circle_filter = "";
+
+
+    if (!empty($selected_regions)) {
+        $selected_regions = "'" . implode("','", $selected_regions) . "'";
+        $region_filter = " AND tr.fld_name IN ($selected_regions)";
+    }
+    if (!empty($selected_circles)) {
+        $selected_circles = "'" . implode("','", $selected_circles) . "'";
+        $circle_filter = " AND tc.fld_fullname IN ($selected_circles)";
+    }
+
+    if (!empty($siteid)) {
+        $siteid_filter = "AND ts.fld_tvi_site_id = '$siteid'";
+    }
+
+
+
     $downloadQuery = "
     SELECT 
 	tr.fld_name AS Region, 
@@ -47,6 +70,9 @@ LEFT JOIN tbl_users AS tu
 	AND tu.fld_is_active = '1'
 WHERE 
 	ts.fld_is_active = '1'
+    $siteid_filter
+    $region_filter
+    $circle_filter
 GROUP BY 
 	tr.fld_name, 
 	tc.fld_name, 

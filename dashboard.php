@@ -11,22 +11,44 @@ if (isset($_GET['page'])) {
 }
 
 $offset = ($page - 1) * $limit;
-$regions = ['East', 'Central', 'Upper North', 'West', 'South'];
+
+$fetchRegions = "SELECT fld_name FROM tbl_region ORDER BY fld_name";
+$fetchRegionsResult = mysqli_query($conn, $fetchRegions);
+$regions = [];
+if (mysqli_num_rows($fetchRegionsResult) > 0) {
+    while ($row = mysqli_fetch_assoc($fetchRegionsResult)) {
+        array_push($regions, $row['fld_name']);
+    }
+}
+
+$fetchCircles = "SELECT fld_fullname from tbl_circle ORDER BY fld_fullname";
+$fetchCirclesResult = mysqli_query($conn, $fetchCircles);
+$circles = [];
+if (mysqli_num_rows($fetchCirclesResult) > 0) {
+    while ($row = mysqli_fetch_assoc($fetchCirclesResult)) {
+        array_push($circles, $row['fld_fullname']);
+    }
+}
+
+$siteid = trim(isset($_GET['siteid']) ? $_GET['siteid'] : "");
 $selected_regions = isset($_GET['region']) ? $_GET['region'] : [];
-$siteid = isset($_GET['siteid']) ? $_GET['siteid'] : "";
+$selected_circles = isset($_GET['circle']) ? $_GET['circle'] : [];
 $region_filter = "";
-$siteid_fiter = "";
-$params = [];
-$types = "";
+$siteid_filter = "";
+$circle_filter = "";
 
 
 if (!empty($selected_regions)) {
     $selected_regions = "'" . implode("','", $selected_regions) . "'";
     $region_filter = " AND tr.fld_name IN ($selected_regions)";
 }
+if (!empty($selected_circles)) {
+    $selected_circles = "'" . implode("','", $selected_circles) . "'";
+    $circle_filter = " AND tc.fld_fullname IN ($selected_circles)";
+}
 
 if (!empty($siteid)) {
-    $siteid_fiter = "AND ts.fld_tvi_site_id = '$siteid'";
+    $siteid_filter = "AND ts.fld_tvi_site_id = '$siteid'";
 }
 
 $sql = "
@@ -55,8 +77,9 @@ $sql = "
     LEFT JOIN tbl_user_site_role_map AS tusrm ON tusrm.fld_site_id = ts.fld_ai_id AND tusrm.fld_is_active = '1'
     LEFT JOIN tbl_users AS tu ON tusrm.fld_user_id = tu.fld_ai_id AND tu.fld_is_active = '1'
     WHERE ts.fld_is_active = '1' 
-    $siteid_fiter
+    $siteid_filter
     $region_filter
+    $circle_filter
     GROUP BY 
         tr.fld_name, 
         tc.fld_name, 
@@ -64,6 +87,8 @@ $sql = "
         ts.fld_tvi_site_id,
         ts.fld_name
     LIMIT {$offset}, {$limit}";
+
+
 
 $stmt = $conn->prepare($sql);
 $stmt->execute();
@@ -90,15 +115,17 @@ while ($row = $result->fetch_assoc()) {
 <body class="bg-gray-100 p-2">
 
     <?php
-    $regions = ['East', 'Central', 'Upper North', 'West', 'South'];
     $selected_regions = isset($_GET['region']) ? $_GET['region'] : [];
-
+    ?>
+    <?php
+    $selected_circles = isset($_GET['circle']) ? $_GET['circle'] : [];
     ?>
     <form method="get" class="mb-4 inline-block relative">
         <div class="flex flex-col sm:flex-row sm:items-center gap-2 mr-8">
 
             <label class="font-semibold">Site:</label>
             <input type="text" class="bg-white text-black border border-gray-300 px-2" name="siteid" placeholder="TVI Site ID" value="<?php echo $siteid; ?>">
+
             <label class=" font-semibold">Region:</label>
             <div class="relative inline-block text-left">
                 <button type="button" id="dropdownButton" class="inline-flex justify-center w-full border border-gray-300 shadow-sm px-2 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
@@ -123,18 +150,41 @@ while ($row = $result->fetch_assoc()) {
                 </div>
             </div>
 
+            <label class=" font-semibold">Circle:</label>
+            <div class="relative inline-block text-left">
+                <button type="button" id="dropdownButtonCircle" class="inline-flex justify-center w-full border border-gray-300 shadow-sm px-2 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Select Circles
+                    <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.25 8.27a.75.75 0 01-.02-1.06z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+
+                <div id="dropdownMenuCircle" class="hidden absolute z-10 mt-2 w-56 bg-white ring-1 ring-black ring-opacity-5 p-4 max-h-64 overflow-y-auto">
+                    <label class="block mb-2">
+                        <input type="checkbox" id="selectAllCircle" class="mr-1">
+                        <strong>Select All</strong>
+                    </label>
+                    <?php foreach ($circles as $circle): ?>
+                        <label class="block">
+                            <input type="checkbox" name="circle[]" value="<?php echo $circle; ?>"
+                                <?php echo in_array($circle, $selected_circles) ? 'checked' : ''; ?>>
+                            <?php echo $circle; ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+
             <button type="submit" class="bg-blue-700 text-white px-3 py-1 text-sm">Search</button>
         </div>
     </form>
-
-
 
 
     <form action="import_sheet.php" method="post" enctype="multipart/form-data" style="display: inline;">
         <input type="file" name="file" accept=".xls,.xlsx" required class="p-1 border border-gray-500">
         <button class="bg-black text-white px-3 py-1  rounded-sm text-[14px] mt-4 inline-block" type="submit" name="submit">Import Excel</button>
     </form>
-    <form action="export_sheet.php" method="post" enctype="multipart/form-data" style="display: inline;">
+    <form action="export_sheet.php?<?php echo http_build_query(array('data' => $_GET)) ?>" method="post" enctype="multipart/form-data" style="display: inline;">
         <button class="bg-green-600 text-white px-3 py-1  rounded-sm text-[16px] mt-4 inline-block" type="submit" name="export_submit">Export Excel</button>
     </form>
 
@@ -185,52 +235,52 @@ while ($row = $result->fetch_assoc()) {
         <ul class="pagination">
             <?php
             $sql1 =  "
-    SELECT 
-	tr.fld_name AS Region, 
-	tc.fld_name AS Circle, 
-	tc2.fld_name AS Cluster,
-	ts.fld_tvi_site_id AS 'TVI Site ID',
-	ts.fld_name AS Site,
-	MAX(CASE 
-		WHEN tusrm.fld_role_id = 1 
-		THEN CONCAT(tu.fld_first_name, ' ', tu.fld_last_name, ' (', tu.fld_phone , ')') 
-	END) AS 'Technician',
-	MAX(CASE 
-		WHEN tusrm.fld_role_id = 2
-		THEN CONCAT(tu.fld_first_name, ' ', tu.fld_last_name, ' (', tu.fld_phone, ')') 
-	END) AS 'Cluster In-Charge',
-	MAX(CASE 
-		WHEN tusrm.fld_role_id = 8 
-		THEN CONCAT(tu.fld_first_name, ' ', tu.fld_last_name, ' (', tu.fld_phone, ')') 
-	END) AS 'Supervisor'
-FROM tbl_site AS ts 
-LEFT JOIN tbl_circle AS tc 
-	ON ts.fld_circle_id = tc.fld_ai_id 
-	AND tc.fld_is_active = '1'
-LEFT JOIN tbl_cluster AS tc2  
-	ON ts.fld_cluster_id = tc2.fld_ai_id 
-	AND tc2.fld_is_active = '1'
-LEFT JOIN tbl_region AS tr 
-	ON tr.fld_ai_id = tc.fld_region_id 
-	AND tr.fld_is_active = '1'
-LEFT JOIN tbl_user_site_role_map AS tusrm 
-	ON tusrm.fld_site_id = ts.fld_ai_id 
-	AND tusrm.fld_is_active = '1'
-LEFT JOIN tbl_users AS tu 
-	ON tusrm.fld_user_id = tu.fld_ai_id 
-	AND tu.fld_is_active = '1'
-WHERE 
-	ts.fld_is_active = '1'
-    $siteid_fiter
-    $region_filter
-
-GROUP BY 
-	tr.fld_name, 
-	tc.fld_name, 
-	tc2.fld_name, 
-	ts.fld_tvi_site_id,
-	ts.fld_name;
-";
+        SELECT 
+        tr.fld_name AS Region, 
+        tc.fld_name AS Circle, 
+        tc2.fld_name AS Cluster,
+        ts.fld_tvi_site_id AS 'TVI Site ID',
+        ts.fld_name AS Site,
+        MAX(CASE 
+            WHEN tusrm.fld_role_id = 1 
+            THEN CONCAT(tu.fld_first_name, ' ', tu.fld_last_name, ' (', tu.fld_phone , ')') 
+        END) AS 'Technician',
+        MAX(CASE 
+            WHEN tusrm.fld_role_id = 2
+            THEN CONCAT(tu.fld_first_name, ' ', tu.fld_last_name, ' (', tu.fld_phone, ')') 
+        END) AS 'Cluster In-Charge',
+        MAX(CASE 
+            WHEN tusrm.fld_role_id = 8 
+            THEN CONCAT(tu.fld_first_name, ' ', tu.fld_last_name, ' (', tu.fld_phone, ')') 
+        END) AS 'Supervisor'
+    FROM tbl_site AS ts 
+    LEFT JOIN tbl_circle AS tc 
+        ON ts.fld_circle_id = tc.fld_ai_id 
+        AND tc.fld_is_active = '1'
+    LEFT JOIN tbl_cluster AS tc2  
+        ON ts.fld_cluster_id = tc2.fld_ai_id 
+        AND tc2.fld_is_active = '1'
+    LEFT JOIN tbl_region AS tr 
+        ON tr.fld_ai_id = tc.fld_region_id 
+        AND tr.fld_is_active = '1'
+    LEFT JOIN tbl_user_site_role_map AS tusrm 
+        ON tusrm.fld_site_id = ts.fld_ai_id 
+        AND tusrm.fld_is_active = '1'
+    LEFT JOIN tbl_users AS tu 
+        ON tusrm.fld_user_id = tu.fld_ai_id 
+        AND tu.fld_is_active = '1'
+    WHERE 
+        ts.fld_is_active = '1'
+        $siteid_filter
+        $region_filter
+        $circle_filter
+    GROUP BY 
+        tr.fld_name, 
+        tc.fld_name, 
+        tc2.fld_name, 
+        ts.fld_tvi_site_id,
+        ts.fld_name;
+    ";
 
             $result1 = mysqli_query($conn, $sql1) or die("Query failed");
 
@@ -247,7 +297,7 @@ GROUP BY
                 echo "</div>";
 
                 if ($current_page > 1) {
-                    echo '<li><a href="dashboard.php?page=' . ($current_page - 1) . ' &' . http_build_query(array("region" => $selected_regions)) . '"><< Prev</a></li>';
+                    print_r('<li><a href="dashboard.php?page=' . ($current_page - 1) . '&' . http_build_query(array("region" => $selected_regions)) . '&' . http_build_query(array("circle" => $selected_circles)) . '"><< Prev</a></li>');
                 }
 
                 $start = max(1, $current_page - 1);
@@ -255,11 +305,11 @@ GROUP BY
 
                 for ($i = $start; $i <= $end; $i++) {
                     $active = ($i == $current_page) ? 'active' : '';
-                    echo '<li><a class="' . $active . '" href="dashboard.php?page=' . $i . '&' . http_build_query(array("region" => $selected_regions)) . '">' . $i . '</a></li>';
+                    print_r('<li><a class="' . $active . '" href="dashboard.php?page=' . $i . '&' . http_build_query(array("region" => $selected_regions)) . '&' . http_build_query(array("circle" => $selected_circles)) . '">' . $i . '</a></li>');
                 }
 
                 if ($current_page < $total_page) {
-                    print_r('<li><a href="dashboard.php?page=' . ($current_page + 1) . '&' . http_build_query(array("region" => $selected_regions)) . '">Next >></a></li>');
+                    print_r('<li><a href="dashboard.php?page=' . ($current_page + 1) . '&' . http_build_query(array("region" => $selected_regions)) . '&' . http_build_query(array("circle" => $selected_circles)) . '">Next >></a></li>');
                 }
             }
             ?>
@@ -278,6 +328,7 @@ GROUP BY
         const dropdownButton = document.getElementById('dropdownButton');
         const dropdownMenu = document.getElementById('dropdownMenu');
         const selectAllCheckbox = document.getElementById('selectAll');
+
 
         dropdownButton.addEventListener('click', function(e) {
             e.preventDefault();
@@ -333,6 +384,63 @@ GROUP BY
             const checkboxes = dropdownMenu.querySelectorAll('input[type="checkbox"][name="region[]"]');
             const selected = Array.from(checkboxes).filter(cb => cb.checked);
             selectAllCheckbox.checked = selected.length === checkboxes.length;
+        });
+
+
+        const dropdownButtonCircle = document.getElementById('dropdownButtonCircle');
+        const dropdownMenuCircle = document.getElementById('dropdownMenuCircle');
+        const selectAllCheckboxCircle = document.getElementById('selectAllCircle');
+
+        dropdownButtonCircle.addEventListener('click', function(e) {
+            e.preventDefault();
+            dropdownMenuCircle.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', function(e) {
+
+            if (!dropdownButtonCircle.contains(e.target) && !dropdownMenuCircle.contains(e.target)) {
+                dropdownMenuCircle.classList.add('hidden');
+            }
+        });
+
+        selectAllCheckboxCircle.addEventListener('change', function() {
+            const checkboxesCircle = dropdownMenuCircle.querySelectorAll('input[type="checkbox"][name="circle[]"]');
+            checkboxesCircle.forEach(cb => cb.checked = this.checked);
+            updateDropdownLabelCircle();
+        });
+
+        function updateDropdownLabelCircle() {
+            const checkboxesCircle = dropdownMenuCircle.querySelectorAll('input[type="checkbox"][name="circle[]"]');
+            const selectedCircle = Array.from(checkboxesCircle).filter(cb => cb.checked);
+            const totalCircle = checkboxesCircle.length;
+
+            if (selectedCircle.length === 0) {
+                dropdownButtonCircle.innerHTML = 'Select Circles' + dropdownIcon();
+            } else if (selectedCircle.length === totalCircle) {
+                dropdownButtonCircle.innerHTML = 'All selected' + ` (${totalCircle})` + dropdownIcon();
+            } else if (selectedCircle.length <= 3) {
+                const namesCircle = selectedCircle.map(cb => cb.value).join(', ');
+                dropdownButtonCircle.innerHTML = namesCircle + dropdownIcon();
+            } else {
+                dropdownButtonCircle.innerHTML = `${selectedCircle.length} selected` + dropdownIcon();
+            }
+        }
+
+        dropdownMenuCircle.addEventListener('change', function(e) {
+            if (e.target.name === "circle[]") {
+                const checkboxesCircle = dropdownMenuCircle.querySelectorAll('input[type="checkbox"][name="circle[]"]');
+                const selectedCircle = Array.from(checkboxesCircle).filter(cb => cb.checked);
+                selectAllCheckboxCircle.checked = selectedCircle.length === checkboxesCircle.length;
+                updateDropdownLabelCircle();
+            }
+        });
+
+
+        window.addEventListener('DOMContentLoaded', () => {
+            updateDropdownLabelCircle();
+            const checkboxesCircle = dropdownMenuCircle.querySelectorAll('input[type="checkbox"][name="circle[]"]');
+            const selectedCircle = Array.from(checkboxesCircle).filter(cb => cb.checked);
+            selectAllCheckboxCircle.checked = selectedCircle.length === checkboxesCircle.length;
         });
     </script>
 

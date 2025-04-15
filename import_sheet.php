@@ -3,7 +3,7 @@ ini_set('memory_limit', '6144M');
 include 'db.php';
 
 require 'vendor/autoload.php';
-// $startTime = microtime(true);
+// $startTime = microtime(true  );
 
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 
@@ -45,11 +45,6 @@ if (isset($_POST['submit'])) {
 
                     $values = [];
                     foreach ($chunk as $itr) {
-                        $date = $itr[11] ?? '';
-                        $currentDate = date('Y-m-d');
-                        $tenantOnairDate = (DateTime::createFromFormat('Y-m-d', $date) !== false) ?
-                            $date  : $currentDate;
-
                         $row = [
                             $conn->real_escape_string($itr[1] ?? ''),
                             $conn->real_escape_string($itr[2] ?? ''),
@@ -58,23 +53,7 @@ if (isset($_POST['submit'])) {
                             $conn->real_escape_string($itr[5] ?? ''),
                             $conn->real_escape_string($itr[6] ?? ''),
                             $conn->real_escape_string($itr[7] ?? ''),
-                            $conn->real_escape_string($itr[8] ?? ''),
-                            $conn->real_escape_string($itr[9] ?? ''),
-                            $conn->real_escape_string($itr[10] ?? ''),
-                            $tenantOnairDate,
-                            $conn->real_escape_string($itr[12] ?? ''),
-                            $conn->real_escape_string($itr[13] ?? ''),
-                            $conn->real_escape_string($itr[14] ?? ''),
-                            $conn->real_escape_string($itr[15] ?? ''),
-                            (float) ($itr[16] ?? 0),
-                            $conn->real_escape_string($itr[17] ?? ''),
-                            (float) ($itr[18] ?? 0),
-                            (int) ($itr[19] ?? 0),
-                            (float) ($itr[20] ?? 0),
-                            (float) ($itr[21] ?? 0),
-                            (float) ($itr[22] ?? 0),
-                            (float) ($itr[23] ?? 0),
-                            $conn->real_escape_string($itr[24] ?? '')
+                            $conn->real_escape_string($itr[8] ?? '')
                         ];
 
                         $rowSql = array_map(function ($value) {
@@ -84,12 +63,9 @@ if (isset($_POST['submit'])) {
                         $values[] = "(" . implode(",", $rowSql) . ")";
                     }
 
-                    $columns = "Circle, Entity, OutageMonth, State, Cluster, SiteID, ERPID, SiteName, Category, SubCategory,
-                    TenantOnairDate, OperatorName, OperatorProduct, OperatorID, VendorName, IPFee, SignoffIPSlab,
-                    SignoffCircleCustomerUptime, SiteOutageMins, SignoffUptime, SignoffPenalty, SignoffReward,
-                    CostOfFOLossOutageMins, Status";
+                    $columns = "Region,Circle,Cluster,TVI Site ID,Site,Technician,Supervisor,Cluster In-Charge";
 
-                    $sql = "INSERT INTO outagedata ($columns) VALUES " . implode(',', $values);
+                    $sql = "INSERT INTO  ($columns) VALUES " . implode(',', $values) . ";";
 
                     if (!$conn->query($sql)) {
                         throw new Exception("Query failed: " . $conn->error);
